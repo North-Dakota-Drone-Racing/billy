@@ -10,6 +10,8 @@ import asyncio
 import datetime
 import timezonefinder
 import pytz
+import requests
+import json
 
 logger = logging.getLogger(__name__)
 FORMAT = '%(asctime)s %(levelname)s %(message)s'
@@ -21,6 +23,10 @@ intents.message_content = True
 client = discord.Client(intents=intents)
 tree = discord.app_commands.CommandTree(client)
 tf = timezonefinder.TimezoneFinder()
+
+ollama_server = os.getenv('OLLAMA_SERVER')
+ollama_port = os.getenv('OLLAMA_PORT')
+ollama_model = os.getenv('OLLAMA_MODEL')
 
 #
 # Commands
@@ -96,8 +102,12 @@ async def addEvents():
 
                     channel = client.get_channel(server.discord_channelId)
 
+                    prompt = f"Cleverly announce an upcoming drone racing event called {race_data['name']} to the pilots"
+                    await asyncio.sleep(0)
+                    recieved_message = ollama_message(prompt)
+
                     await channel.send(
-                        content=event.url
+                        content=f'{recieved_message}\n{event.url}'
                     )
 
                     logger.info("Announced new event")
@@ -127,9 +137,47 @@ async def updateEventsStatus():
                 if event.status == discord.EventStatus.active and now > event.end_time:
                     await event.end()
 
+@client.event
+async def on_message(message):
+    if client.user.id == message.author.id:
+        return
+    
+    if str(client.user.id) not in message.content:
+        return
+    
+    message.content.replace(f"<@{client.user.id}>", "")
+    
+    await asyncio.sleep(0)
+
+    recieved_message = ollama_message(message.content)
+
+    await message.reply(recieved_message)
 #
 # Run
 #
+
+def ollama_message(send_message):
+
+    message_out = {
+            "model": ollama_model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": send_message
+                }
+            ],
+            "stream": False
+        }
+    
+    url = f"http://{ollama_server}:{ollama_port}/api/chat"
+    try:
+        response = requests.post(url, data=json.dumps(message_out))
+    except requests.exceptions.ConnectionError:
+        return
+
+    data = json.loads(response.text)
+
+    return data["message"]["content"]
 
 if __name__ == "__main__":
     BOT_TOKEN = os.getenv('TOKEN')

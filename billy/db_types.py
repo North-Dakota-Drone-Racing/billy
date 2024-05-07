@@ -6,7 +6,7 @@ class chapter():
         self.mgp_apikey         = mgp_apikey
 
 class race():
-    def __init__(self, mgp_raceId, mgp_chapterId, start_time, end_time, discord_eventId) -> None:
+    def __init__(self, mgp_raceId, mgp_chapterId, discord_eventId) -> None:
         self.mgp_raceId         = mgp_raceId
         self.mgp_chapterId      = mgp_chapterId
         self.discord_eventId    = discord_eventId
