@@ -111,9 +111,9 @@ async def addEvents():
                     )
 
                     logger.info("Announced new event")
-                    new_races.append((id, server.mgp_chapterId, int(starttime_obj.timestamp()), int(endtime_obj.timestamp()), event.id))
+                    new_races.append((id, server.mgp_chapterId, event.id))
                 else:
-                    new_races.append((id, server.mgp_chapterId, None, None, None))
+                    new_races.append((id, server.mgp_chapterId, None))
 
         DBMangager.add_chapterRaces(new_races)
 
