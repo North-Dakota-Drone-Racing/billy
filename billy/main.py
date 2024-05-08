@@ -107,7 +107,7 @@ async def addEvents():
                     recieved_message = ollama_message(prompt)
 
                     await channel.send(
-                        content=f'<@everyone> {recieved_message}\n{event.url}'
+                        content=f'@everyone {recieved_message}\n{event.url}'
                     )
 
                     logger.info("Announced new event")
