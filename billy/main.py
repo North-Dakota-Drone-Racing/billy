@@ -102,7 +102,9 @@ async def addEvents():
 
                     channel = client.get_channel(server.discord_channelId)
 
-                    prompt = f"Cleverly announce an upcoming drone racing event called {race_data['name']} to the pilots"
+                    prompt = f"""Cleverly announce an upcoming drone racing event called {race_data['name']} to the pilots. 
+                    Do not mention dates or prizes"""
+                    
                     await asyncio.sleep(0)
                     recieved_message = ollama_message(prompt)
 
