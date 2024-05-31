@@ -137,10 +137,11 @@ async def updateEventsStatus():
                 event = guild.get_scheduled_event(race.discord_eventId)
                 now = datetime.datetime.now().astimezone()
 
-                if event.status == discord.EventStatus.scheduled and now > event.start_time:
-                    await event.start()
-                if event.status == discord.EventStatus.active and now > event.end_time:
-                    await event.end()
+                if event is not None:
+                    if event.status == discord.EventStatus.scheduled and now > event.start_time:
+                        await event.start()
+                    if event.status == discord.EventStatus.active and now > event.end_time:
+                        await event.end()
 
 if all([ollama_server, ollama_port, ollama_model]):
     @client.event
