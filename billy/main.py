@@ -86,7 +86,7 @@ async def addEvents():
 
                 if datetime.datetime.now().astimezone().timestamp() < starttime_obj.timestamp():
 
-                    event_desciption = f"[Sign Up at MultiGP](https://www.multigp.com/races/view/?race={id})\n\n{race_data['description']}"
+                    event_desciption = f"[Sign Up on MultiGP](https://www.multigp.com/races/view/?race={id})\n\n{race_data['description']}"
 
                     guild = client.get_guild(server.discord_serverId)
                     event = await guild.create_scheduled_event(
@@ -102,8 +102,8 @@ async def addEvents():
 
                     channel = client.get_channel(server.discord_channelId)
 
-                    prompt = f"""Cleverly announce an upcoming drone racing event called {race_data['name']} to the pilots. 
-                    Do not mention dates or prizes"""
+                    prompt = f"""Announce an upcoming drone racing event called {race_data['name']} to the members of drone racing group named {race_data['chapterName']}. 
+                    It will occur on {race_starttime.day}/{race_starttime.month} (formated as day/month). Do not mention prizes"""
                     
                     await asyncio.sleep(0)
                     recieved_message = ollama_message(prompt)
@@ -171,7 +171,7 @@ def ollama_message(send_message):
             "stream": False
         }
     
-    url = f"http://{ollama_server}:{ollama_port}/api/chat"
+    url = f"http://{ollama_server}:{ollama_port}/api/generate"
     try:
         response = requests.post(url, data=json.dumps(message_out))
     except requests.exceptions.ConnectionError:
