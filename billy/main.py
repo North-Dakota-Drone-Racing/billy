@@ -115,7 +115,7 @@ async def addEvents():
                         )
 
                         logger.info("Announced new event")
-                        
+
                     new_races.append((id, server.mgp_chapterId, event.id))
                 else:
                     new_races.append((id, server.mgp_chapterId, None))
@@ -167,24 +167,19 @@ def ollama_message(send_message):
 
     message_out = {
             "model": ollama_model,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": send_message
-                }
-            ],
+            "prompt": send_message,
             "stream": False
         }
     
     url = f"http://{ollama_server}:{ollama_port}/api/generate"
     try:
-        response = requests.post(url, data=json.dumps(message_out))
+        response = requests.post(url, data=json.dumps(message_out), timeout=10)
     except requests.exceptions.ConnectionError:
         return
 
     data = json.loads(response.text)
 
-    return data["message"]["content"]
+    return data["response"]
 
 if __name__ == "__main__":
     BOT_TOKEN = os.getenv('TOKEN')
