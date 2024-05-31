@@ -100,19 +100,22 @@ async def addEvents():
                     )
                     logger.info("Scheduled new event")
 
-                    channel = client.get_channel(server.discord_channelId)
+                    if all([ollama_server, ollama_port, ollama_model]):
 
-                    prompt = f"""Announce an upcoming drone racing event called {race_data['name']} to the members of drone racing group named {race_data['chapterName']}. 
-                    It will occur on {race_starttime.day}/{race_starttime.month} (formated as day/month). Do not mention prizes"""
-                    
-                    await asyncio.sleep(0)
-                    recieved_message = ollama_message(prompt)
+                        channel = client.get_channel(server.discord_channelId)
 
-                    await channel.send(
-                        content=f'@everyone {recieved_message}\n{event.url}'
-                    )
+                        prompt = f"""Announce an upcoming drone racing event called {race_data['name']} to the members of drone racing group named {race_data['chapterName']}. 
+                        It will occur on {race_starttime.day}/{race_starttime.month} (formated as day/month). Do not mention prizes"""
+                        
+                        await asyncio.sleep(0)
+                        recieved_message = ollama_message(prompt)
 
-                    logger.info("Announced new event")
+                        await channel.send(
+                            content=f'@everyone {recieved_message}\n{event.url}'
+                        )
+
+                        logger.info("Announced new event")
+                        
                     new_races.append((id, server.mgp_chapterId, event.id))
                 else:
                     new_races.append((id, server.mgp_chapterId, None))
@@ -139,21 +142,23 @@ async def updateEventsStatus():
                 if event.status == discord.EventStatus.active and now > event.end_time:
                     await event.end()
 
-@client.event
-async def on_message(message):
-    if client.user.id == message.author.id:
-        return
-    
-    if str(client.user.id) not in message.content:
-        return
-    
-    message.content.replace(f"<@{client.user.id}>", "")
-    
-    await asyncio.sleep(0)
+if all([ollama_server, ollama_port, ollama_model]):
+    @client.event
+    async def on_message(message):
+        if client.user.id == message.author.id:
+            return
+        
+        if str(client.user.id) not in message.content:
+            return
+        
+        message.content.replace(f"<@{client.user.id}>", "")
+        
+        await asyncio.sleep(0)
 
-    recieved_message = ollama_message(message.content)
+        recieved_message = ollama_message(message.content)
 
-    await message.reply(recieved_message)
+        await message.reply(recieved_message)
+
 #
 # Run
 #
