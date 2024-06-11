@@ -80,9 +80,15 @@ async def addEvents():
                 race_data = multigpAPI.pull_race_data(id, server.mgp_apikey)
                 local_tz = tf.timezone_at(lat=float(race_data['latitude']), lng=float(race_data['longitude']))
                 race_starttime = datetime.datetime.strptime(race_data['startDate'], '%Y-%m-%d %I:%M %p')
-                race_endtime = datetime.datetime.strptime(race_data['endDate'], '%Y-%m-%d %I:%M %p')
                 starttime_obj = pytz.timezone(local_tz).localize(race_starttime)
-                endtime_obj = pytz.timezone(local_tz).localize(race_endtime)
+
+                if race_data['endDate']:
+                    race_endtime = datetime.datetime.strptime(race_data['endDate'], '%Y-%m-%d %I:%M %p')
+                    endtime_obj = pytz.timezone(local_tz).localize(race_endtime)
+                    if starttime_obj >= endtime_obj:
+                        endtime_obj = starttime_obj + datetime.timedelta(hours=3)
+                else:
+                    endtime_obj = starttime_obj + datetime.timedelta(hours=3)
 
                 if datetime.datetime.now().astimezone().timestamp() < starttime_obj.timestamp():
 
