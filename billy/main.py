@@ -63,7 +63,7 @@ async def on_ready():
 #
 
 # Replace this with a webhook if possible
-@discord.ext.tasks.loop(hours=3)
+@discord.ext.tasks.loop(hours=1)
 async def addEvents():
     servers = DBMangager.get_discordServers()
     for server in servers:
@@ -90,13 +90,20 @@ async def addEvents():
                 else:
                     endtime_obj = starttime_obj + datetime.timedelta(hours=3)
 
+                current_date = pytz.timezone(local_tz).localize(datetime.datetime.now())
+                start_range = datetime.time(hour=8, tzinfo=current_date.tzinfo)
+                end_range = datetime.time(hour=21, tzinfo=current_date.tzinfo)
+
+                if current_date.timetz() < start_range or end_range < current_date.timetz():
+                    continue
+
                 if datetime.datetime.now().astimezone().timestamp() < starttime_obj.timestamp():
 
                     event_desciption = f"[Sign Up on MultiGP](https://www.multigp.com/races/view/?race={id})\n\n{race_data['description']}"
 
                     guild = client.get_guild(server.discord_serverId)
                     event = await guild.create_scheduled_event(
-                        name=race_data['name'],
+                        name=name,
                         description=event_desciption,
                         start_time=starttime_obj,
                         end_time=endtime_obj,
@@ -110,7 +117,7 @@ async def addEvents():
 
                         channel = client.get_channel(server.discord_channelId)
 
-                        prompt = f"""Announce an upcoming drone racing event called {race_data['name']} to the members of drone racing group named {race_data['chapterName']}. 
+                        prompt = f"""Announce an upcoming drone racing event called {name} to the members of drone racing group named {race_data['chapterName']}. 
                         It will occur on {race_starttime.day}/{race_starttime.month} (formated as day/month). Do not mention prizes"""
                         
                         await asyncio.sleep(0)
@@ -180,6 +187,8 @@ def ollama_message(send_message):
     
     url = f"http://{ollama_server}:{ollama_port}/api/generate"
     try:
+        response = requests.post(url, data=json.dumps(message_out), timeout=10)
+    except requests.ReadTimeout:
         response = requests.post(url, data=json.dumps(message_out), timeout=10)
     except requests.exceptions.ConnectionError:
         return
