@@ -90,9 +90,9 @@ async def addEvents():
                 else:
                     endtime_obj = starttime_obj + datetime.timedelta(hours=3)
 
-                current_date = pytz.timezone(local_tz).localize(datetime.datetime.now())
+                current_date = datetime.datetime.now(tz=pytz.timezone(local_tz))
                 start_range = datetime.time(hour=8, tzinfo=current_date.tzinfo)
-                end_range = datetime.time(hour=21, tzinfo=current_date.tzinfo)
+                end_range = datetime.time(hour=20, tzinfo=current_date.tzinfo)
 
                 if current_date.timetz() < start_range or end_range < current_date.timetz():
                     continue
@@ -165,7 +165,7 @@ if all([ollama_server, ollama_port, ollama_model]):
         if str(client.user.id) not in message.content:
             return
         
-        message.content.replace(f"<@{client.user.id}>", "")
+        message.content.replace(f"<@{client.user.id}>", "Billy")
         
         await asyncio.sleep(0)
 
