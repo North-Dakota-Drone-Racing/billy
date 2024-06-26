@@ -57,10 +57,10 @@ class DBMangager():
 
         async with aiosqlite.connect(self.database_file) as db:
 
-            async with db.execute("SELECT * FROM chapter") as cursor:
-                servers = await asyncio.gather(
-                    *[db_types.chapter(*chapter) for chapter in cursor]
-                )
+            chapters = await db.execute("SELECT * FROM chapter")
+            servers = await asyncio.gather(
+                *[db_types.chapter(*chapter) async for chapter in chapters]
+            )
 
         return servers
     
@@ -77,7 +77,7 @@ class DBMangager():
 
             race_data = await db.execute("SELECT * FROM race WHERE mgp_chapterId=?", (chapter_id,))
             races = await asyncio.gather(
-                *[race[0] for race in race_data]
+                *[race[0] async for race in race_data]
             )
         
         return races
@@ -87,9 +87,8 @@ class DBMangager():
         async with aiosqlite.connect(self.database_file) as db:
 
             race_data = await db.execute("SELECT * FROM race")
-
             races = await asyncio.gather(
-                *[db_types.race(*race) for race in race_data]
+                *[db_types.race(*race) async for race in race_data]
             )
         
         return races
