@@ -42,7 +42,7 @@ ollama_model = os.getenv('OLLAMA_MODEL')
     description="Set the MultiGP API key and announcement channel for the server"
 )
 async def activateBot(interaction: discord.Interaction, channel:discord.app_commands.AppCommandChannel, apikey:str):
-    chapter_info = DBMangager.set_serverConfiguration(interaction.guild.id, channel.id, apikey)
+    chapter_info = await DBMangager.set_serverConfiguration(interaction.guild.id, channel.id, apikey)
     if chapter_info:
         await interaction.response.send_message(f"API key recongized. {chapter_info['chapterName']} has been set as the server's chapter and <#{channel.id}> will be used for announcements.")
         logger.info(f"Data for {chapter_info['chapterName']} has been updated")
@@ -133,11 +133,11 @@ async def addEvents():
                 else:
                     new_races.append((id, server.mgp_chapterId, None))
 
-        DBMangager.add_chapterRaces(new_races)
+        await DBMangager.add_chapterRaces(new_races)
 
 @discord.ext.tasks.loop(minutes=15)
 async def updateEventsStatus():
-    servers = DBMangager.get_discordServers()
+    servers = await DBMangager.get_discordServers()
     races:list[db_types.race] = await DBMangager.get_Races()
     for race in races:
         if race.discord_eventId is None:

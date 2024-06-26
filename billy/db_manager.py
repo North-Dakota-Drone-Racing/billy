@@ -11,18 +11,18 @@ class DBMangager():
         self.logger:logging.Logger = logger
         self.estabilsh_db()
         
-    async def estabilsh_db(self) -> None:
-        connection = await aiosqlite.connect(self.database_file)
-        cursor = await connection.cursor()
+    def estabilsh_db(self) -> None:
+        connection = aiosqlite.connect(self.database_file)
+        cursor = connection.cursor()
 
-        await cursor.execute("CREATE TABLE IF NOT EXISTS chapter(discord_serverId INTEGER, discord_channelId INTEGER, mgp_chapterId TEXT, mgp_apikey TEXT)")
-        await cursor.execute("CREATE TABLE IF NOT EXISTS race(mgp_raceId TEXT, mgp_chapterId TEXT, discord_eventId INTEGER)")
+        cursor.execute("CREATE TABLE IF NOT EXISTS chapter(discord_serverId INTEGER, discord_channelId INTEGER, mgp_chapterId TEXT, mgp_apikey TEXT)")
+        cursor.execute("CREATE TABLE IF NOT EXISTS race(mgp_raceId TEXT, mgp_chapterId TEXT, discord_eventId INTEGER)")
 
-        await cursor.close()
-        await connection.close()
+        cursor.close()
+        connection.close()
 
     async def set_serverConfiguration(self, discord_serverId:int, discord_channelId:int, mgp_apikey:str) -> dict:
-        chapter_info = multigpAPI.pull_chapter(mgp_apikey)
+        chapter_info = await multigpAPI.pull_chapter(mgp_apikey)
         if chapter_info and chapter_info['status']:
             self.logger.debug(f"Pulled chapter info for {chapter_info['chapterName']}")
             mgp_chapterId = chapter_info['chapterId']
