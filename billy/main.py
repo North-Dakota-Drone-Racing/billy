@@ -70,9 +70,8 @@ async def on_ready():
 # Replace this with a webhook if possible
 @discord.ext.tasks.loop(hours=1)
 async def addEvents():
-    servers = DBMangager.get_discordServers()
-    for server in servers:
-
+    servers = await DBMangager.get_discordServers()
+    async for server in servers:
         db_races = await DBMangager.get_chapterRaces(server.mgp_chapterId)
         mgp_races = await multigpAPI.pull_races(server.mgp_chapterId, server.mgp_apikey)
 
@@ -139,8 +138,8 @@ async def addEvents():
 @discord.ext.tasks.loop(minutes=15)
 async def updateEventsStatus():
     servers = DBMangager.get_discordServers()
-    races:list[db_types.race] = DBMangager.get_Races()
-    for race in races:
+    races:list[db_types.race] = await DBMangager.get_Races()
+    async for race in races:
         if race.discord_eventId is None:
             continue
 
