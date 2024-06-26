@@ -6,17 +6,22 @@ import multigpAPI
 import discord
 import discord.ext
 import discord.ext.tasks
-import asyncio
 import datetime
 import timezonefinder
 import pytz
-import requests
+import httpx
 import json
+
+debug = bool(os.getenv('DEBUG'))
+if debug:
+    level = logging.DEBUG
+else:
+    level = logging.INFO
 
 logger = logging.getLogger(__name__)
 FORMAT = '%(asctime)s %(levelname)s %(message)s'
 timestamp = int(datetime.datetime.now().astimezone().timestamp())
-logging.basicConfig(filename=f'/billy/files/{timestamp}.log', encoding='utf-8', level=logging.INFO, format=FORMAT, datefmt='%Y-%m-%d %H:%M:%S')
+logging.basicConfig(filename=f'/billy/files/{timestamp}.log', encoding='utf-8', level=level, format=FORMAT, datefmt='%Y-%m-%d %H:%M:%S')
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -67,17 +72,14 @@ async def on_ready():
 async def addEvents():
     servers = DBMangager.get_discordServers()
     for server in servers:
-        await asyncio.sleep(0)
-        db_races = DBMangager.get_chapterRaces(server.mgp_chapterId)
-        await asyncio.sleep(0)
-        mgp_races = multigpAPI.pull_races(server.mgp_chapterId, server.mgp_apikey)
-        await asyncio.sleep(0)
+
+        db_races = await DBMangager.get_chapterRaces(server.mgp_chapterId)
+        mgp_races = await multigpAPI.pull_races(server.mgp_chapterId, server.mgp_apikey)
 
         new_races = []
-        for id, name in mgp_races.items():
-            await asyncio.sleep(0)
+        async for id, name in mgp_races.items():
             if id not in db_races:
-                race_data = multigpAPI.pull_race_data(id, server.mgp_apikey)
+                race_data = await multigpAPI.pull_race_data(id, server.mgp_apikey)
                 local_tz = tf.timezone_at(lat=float(race_data['latitude']), lng=float(race_data['longitude']))
                 race_starttime = datetime.datetime.strptime(race_data['startDate'], '%Y-%m-%d %I:%M %p')
                 starttime_obj = pytz.timezone(local_tz).localize(race_starttime)
@@ -120,8 +122,7 @@ async def addEvents():
                         prompt = f"""Announce an upcoming drone racing event called {name} to the members of drone racing group named {race_data['chapterName']}. 
                         It will occur on {race_starttime.day}/{race_starttime.month} (formated as day/month). Do not mention prizes"""
                         
-                        await asyncio.sleep(0)
-                        recieved_message = ollama_message(prompt)
+                        recieved_message = await ollama_message(prompt)
 
                         await channel.send(
                             content=f'@everyone {recieved_message}\n{event.url}'
@@ -166,10 +167,8 @@ if all([ollama_server, ollama_port, ollama_model]):
             return
         
         message.content.replace(f"<@{client.user.id}>", "Billy")
-        
-        await asyncio.sleep(0)
 
-        recieved_message = ollama_message(message.content)
+        recieved_message = await ollama_message(message.content)
 
         await message.reply(recieved_message)
 
@@ -177,7 +176,7 @@ if all([ollama_server, ollama_port, ollama_model]):
 # Run
 #
 
-def ollama_message(send_message):
+async def ollama_message(send_message):
 
     message_out = {
             "model": ollama_model,
@@ -186,13 +185,16 @@ def ollama_message(send_message):
         }
     
     url = f"http://{ollama_server}:{ollama_port}/api/generate"
-    try:
-        response = requests.post(url, data=json.dumps(message_out), timeout=10)
-    except requests.ReadTimeout:
-        response = requests.post(url, data=json.dumps(message_out), timeout=10)
-    except requests.exceptions.ConnectionError:
-        return
 
+    try:
+        response = await multigpAPI.client.post(url, data=json.dumps(message_out))
+    except httpx.ConnectError:
+        logger.warning("Connection to Ollama server failed")
+        return
+    except httpx.ReadTimeout:
+        logger.warning("Did not recieve a response from Ollama server")
+        return
+    
     data = json.loads(response.text)
 
     return data["response"]

@@ -1,4 +1,5 @@
 discord
-requests
+httpx
 timezonefinder
 pytz
+aiosqlite
