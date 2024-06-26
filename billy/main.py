@@ -123,12 +123,12 @@ async def addEvents():
                         It will occur on {race_starttime.day}/{race_starttime.month} (formated as day/month). Do not mention prizes"""
                         
                         recieved_message = await ollama_message(prompt)
+                        if recieved_message:
+                            await channel.send(
+                                content=f'@everyone {recieved_message}\n{event.url}'
+                            )
 
-                        await channel.send(
-                            content=f'@everyone {recieved_message}\n{event.url}'
-                        )
-
-                        logger.info("Announced new event")
+                            logger.info("Announced new event")
 
                     new_races.append((id, server.mgp_chapterId, event.id))
                 else:
