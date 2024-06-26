@@ -3,6 +3,7 @@ import multigpAPI
 import db_types
 import aiosqlite
 import sqlite3
+import asyncio
 
 class DBMangager():
 
@@ -30,86 +31,65 @@ class DBMangager():
         else:
             return False
 
-        connection = await aiosqlite.connect(self.database_file)
-        cursor = await connection.cursor()
+        async with aiosqlite.connect(self.database_file) as db:
         
-        count = await cursor.execute("SELECT COUNT(*) FROM chapter WHERE discord_serverId=?", (discord_serverId,))
-        if count.fetchone()[0] > 0:
-            await cursor.execute(f"UPDATE chapter SET discord_channelId=?, mgp_apikey=?, mgp_chapterId=? WHERE discord_serverId=?", 
-                           (discord_channelId, mgp_apikey, mgp_chapterId, discord_serverId))
-            await connection.commit()
-        else:
-            await cursor.execute("INSERT INTO chapter (discord_serverId, discord_channelId, mgp_chapterId, mgp_apikey) VALUES(?, ?, ?, ?)", 
-                           (discord_serverId, discord_channelId, mgp_chapterId, mgp_apikey))
-            await connection.commit()
-
-        await cursor.close()
-        await connection.close()
+            count = await db.execute("SELECT COUNT(*) FROM chapter WHERE discord_serverId=?", (discord_serverId,))
+            if count.fetchone()[0] > 0:
+                await db.execute(f"UPDATE chapter SET discord_channelId=?, mgp_apikey=?, mgp_chapterId=? WHERE discord_serverId=?", 
+                            (discord_channelId, mgp_apikey, mgp_chapterId, discord_serverId))
+                await db.commit()
+            else:
+                await db.execute("INSERT INTO chapter (discord_serverId, discord_channelId, mgp_chapterId, mgp_apikey) VALUES(?, ?, ?, ?)", 
+                            (discord_serverId, discord_channelId, mgp_chapterId, mgp_apikey))
+                await db.commit()
 
         return chapter_info
     
     async def get_chapterInfo(self, discord_id:int) -> db_types.chapter:
-        connection = await aiosqlite.connect(self.database_file)
-        cursor = await connection.cursor()
 
-        servers = await cursor.execute("SELECT * FROM chapter WHERE discord_serverId=?", (discord_id,))
-        server = db_types.chapter(*servers.fetchone())
-
-        await cursor.close()
-        await connection.close()
+        async with aiosqlite.connect(self.database_file) as db:
+            servers = await db.execute("SELECT * FROM chapter WHERE discord_serverId=?", (discord_id,))
+            server = db_types.chapter(*servers.fetchone())
 
         return server
     
     async def get_discordServers(self) -> list[db_types.chapter]:
-        connection = await aiosqlite.connect(self.database_file)
-        cursor = await connection.cursor()
 
-        chapters = await cursor.execute("SELECT * FROM chapter")
-        servers = []
-        async for chapter in chapters:
-            servers.append(db_types.chapter(*chapter))
+        async with aiosqlite.connect(self.database_file) as db:
 
-        await cursor.close()
-        await connection.close()
+            chapters = await db.execute("SELECT * FROM chapter")
+            servers = await asyncio.gather(
+                *[db_types.chapter(*chapter) for chapter in chapters]
+            )
 
         return servers
     
     async def add_chapterRaces(self, races:list[tuple]) -> None:
-        connection = await aiosqlite.connect(self.database_file)
-        cursor = await connection.cursor()
 
-        await cursor.executemany("INSERT INTO race (mgp_raceId, mgp_chapterId, discord_eventId) VALUES (?, ?, ?)", races)
-        await connection.commit()
+        async with aiosqlite.connect(self.database_file) as db:
 
-        await cursor.close()
-        await connection.close()
+            await db.executemany("INSERT INTO race (mgp_raceId, mgp_chapterId, discord_eventId) VALUES (?, ?, ?)", races)
+            await db.commit()
     
     async def get_chapterRaces(self, chapter_id:str) -> list[int]:
 
-        connection = await aiosqlite.connect(self.database_file)
-        cursor = await connection.cursor()
+        async with aiosqlite.connect(self.database_file) as db:
 
-        race_data = await cursor.execute("SELECT * FROM race WHERE mgp_chapterId=?", (chapter_id,))
-        races = []
-        async for race in race_data:
-            races.append(race[0])
-
-        await cursor.close()
-        await connection.close()
+            race_data = await db.execute("SELECT * FROM race WHERE mgp_chapterId=?", (chapter_id,))
+            races = await asyncio.gather(
+                *[race[0] for race in race_data]
+            )
         
         return races
     
     async def get_Races(self) -> list[db_types.race]:
 
-        connection = await aiosqlite.connect(self.database_file)
-        cursor = await connection.cursor()
+        async with aiosqlite.connect(self.database_file) as db:
 
-        race_data = await cursor.execute("SELECT * FROM race")
-        races = []
-        async for race in race_data:
-            races.append(db_types.race(*race))
+            race_data = await db.execute("SELECT * FROM race")
 
-        await cursor.close()
-        await connection.close()
+            races = await asyncio.gather(
+                *[db_types.race(*race) for race in race_data]
+            )
         
         return races
