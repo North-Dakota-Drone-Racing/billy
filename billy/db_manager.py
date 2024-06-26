@@ -57,10 +57,10 @@ class DBMangager():
 
         async with aiosqlite.connect(self.database_file) as db:
 
-            chapters = await db.execute("SELECT * FROM chapter")
-            servers = await asyncio.gather(
-                *[db_types.chapter(*chapter) for chapter in chapters]
-            )
+            async with db.execute("SELECT * FROM chapter") as cursor:
+                servers = await asyncio.gather(
+                    *[db_types.chapter(*chapter) for chapter in cursor]
+                )
 
         return servers
     
