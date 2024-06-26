@@ -169,8 +169,8 @@ if all([ollama_server, ollama_port, ollama_model]):
         message.content.replace(f"<@{client.user.id}>", "Billy")
 
         recieved_message = await ollama_message(message.content)
-
-        await message.reply(recieved_message)
+        if recieved_message:
+            await message.reply(recieved_message)
 
 #
 # Run
@@ -190,10 +190,10 @@ async def ollama_message(send_message):
         response = await multigpAPI.client.post(url, data=json.dumps(message_out))
     except httpx.ConnectError:
         logger.warning("Connection to Ollama server failed")
-        return
+        return None
     except httpx.ReadTimeout:
         logger.warning("Did not recieve a response from Ollama server")
-        return
+        return None
     
     data = json.loads(response.text)
 
