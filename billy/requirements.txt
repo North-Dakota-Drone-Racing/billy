@@ -2,4 +2,5 @@ discord
 httpx
 timezonefinder
 pytz
+sqlite3
 aiosqlite

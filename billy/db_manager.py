@@ -2,6 +2,7 @@ import logging
 import multigpAPI
 import db_types
 import aiosqlite
+import sqlite3
 
 class DBMangager():
 
@@ -12,7 +13,7 @@ class DBMangager():
         self.estabilsh_db()
         
     def estabilsh_db(self) -> None:
-        connection = aiosqlite.connect(self.database_file)
+        connection = sqlite3.connect(self.database_file)
         cursor = connection.cursor()
 
         cursor.execute("CREATE TABLE IF NOT EXISTS chapter(discord_serverId INTEGER, discord_channelId INTEGER, mgp_chapterId TEXT, mgp_apikey TEXT)")
