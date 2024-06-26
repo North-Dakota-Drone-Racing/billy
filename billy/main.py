@@ -128,6 +128,7 @@ async def addEvents():
                             )
 
                             logger.info("Announced new event")
+                            logger.debug(recieved_message)
 
                     new_races.append((id, server.mgp_chapterId, event.id))
                 else:
@@ -167,9 +168,13 @@ if all([ollama_server, ollama_port, ollama_model]):
         
         message.content.replace(f"<@{client.user.id}>", "Billy")
 
+        logger.info("Message recieved")
+        logger.debug(message.content)
+
         recieved_message = await ollama_message(message.content)
         if recieved_message:
             await message.reply(recieved_message)
+            logger.info("Message reply sent")
 
 #
 # Run
