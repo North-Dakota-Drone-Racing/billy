@@ -71,12 +71,12 @@ async def on_ready():
 @discord.ext.tasks.loop(hours=1)
 async def addEvents():
     servers = await DBMangager.get_discordServers()
-    async for server in servers:
+    for server in servers:
         db_races = await DBMangager.get_chapterRaces(server.mgp_chapterId)
         mgp_races = await multigpAPI.pull_races(server.mgp_chapterId, server.mgp_apikey)
 
         new_races = []
-        async for id, name in mgp_races.items():
+        for id, name in mgp_races.items():
             if id not in db_races:
                 race_data = await multigpAPI.pull_race_data(id, server.mgp_apikey)
                 local_tz = tf.timezone_at(lat=float(race_data['latitude']), lng=float(race_data['longitude']))
@@ -139,7 +139,7 @@ async def addEvents():
 async def updateEventsStatus():
     servers = DBMangager.get_discordServers()
     races:list[db_types.race] = await DBMangager.get_Races()
-    async for race in races:
+    for race in races:
         if race.discord_eventId is None:
             continue
 
