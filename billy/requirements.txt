@@ -3,3 +3,4 @@ httpx
 timezonefinder
 pytz
 aiosqlite
+quart
