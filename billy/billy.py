@@ -147,8 +147,8 @@ async def addEvents():
 
                         channel = client.get_channel(server.discord_channelId)
 
-                        prompt = f"""Announce an upcoming drone racing event called {name} to the members of drone racing group named {race_data['chapterName']}. 
-                        It will occur on {race_starttime.day}/{race_starttime.month} (formated as day/month). Do not mention prizes"""
+                        prompt = f"""Cleverly announce an upcoming drone racing event called {name} to the members of drone racing group named {race_data['chapterName']}. 
+                        It will occur on {race_starttime.year}-{race_starttime.month}-{race_starttime.day}."""
                         
                         recieved_message = await ollama.generate_message(prompt)
                         if recieved_message:
