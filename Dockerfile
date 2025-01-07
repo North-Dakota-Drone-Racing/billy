@@ -10,4 +10,4 @@ WORKDIR /billy
 
 RUN poetry install
 
-CMD [ "poetry", "run", "billy"]
+CMD [ "python", "-m", "billy"]
