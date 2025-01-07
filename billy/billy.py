@@ -1,28 +1,22 @@
+"""
+Program primary execution 
+"""
+
 import os
 import logging
-import db_types
-import db_manager
+import datetime
+import asyncio
+
 import discord
 import discord.ext
 import discord.ext.tasks
-import datetime
 import timezonefinder
 import pytz
 
-import multigpAPI
-import webapi
-import ollama
-
-debug = bool(os.getenv('DEBUG'))
-if debug:
-    level = logging.DEBUG
-else:
-    level = logging.INFO
+from .database import DatabaseManager, DiscordServer
+from .api import OllamaAPI, MultiGPAPI
 
 logger = logging.getLogger(__name__)
-FORMAT = '%(asctime)s %(levelname)s %(message)s'
-timestamp = int(datetime.datetime.now().astimezone().timestamp())
-logging.basicConfig(filename=f'/billy/files/{timestamp}.log', encoding='utf-8', level=level, format=FORMAT, datefmt='%Y-%m-%d %H:%M:%S')
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -30,173 +24,266 @@ client = discord.Client(intents=intents)
 tree = discord.app_commands.CommandTree(client)
 tf = timezonefinder.TimezoneFinder()
 
-#
-# Commands
-#
+_filepath = os.getenv("DB_PATH", "/billy/files/database.db")
+db = DatabaseManager(filename=_filepath)
+
+multigp = MultiGPAPI()
+ollama = OllamaAPI()
+
 
 @tree.command(
     name="activate",
-    description="Set the MultiGP API key and announcement channel for the server"
+    description="Set the bot configurations for the server",
 )
-async def activateBot(interaction: discord.Interaction, channel:discord.app_commands.AppCommandChannel, apikey:str):
-    chapter_info = await db_manager.set_serverConfiguration(interaction.guild.id, channel.id, apikey)
-    if chapter_info:
-        await interaction.response.send_message(f"API key recongized. {chapter_info['chapterName']} has been set as the server's chapter and <#{channel.id}> will be used for announcements.")
-        logger.info(f"Data for {chapter_info['chapterName']} has been updated")
-    else:
-        await interaction.response.send_message("API Key not recongized.")
-        logger.warning(f"Failed to update server info: Bad chapter API key")
+async def set_bot_configuration(
+    interaction: discord.Interaction,
+    channel: discord.app_commands.AppCommandChannel,
+    apikey: str,
+):
+    """
+    Sets the configurations for the server
+    """
+    if interaction.guild is not None:
+        chapter_info = await db.set_server_configuration(
+            interaction.guild.id, channel.id, apikey
+        )
+        if chapter_info:
+            await interaction.response.send_message(
+                (
+                    f"API key recongized. {chapter_info['chapterName']} has been set as the "
+                    f"server's chapter and <#{channel.id}> will be used for announcements."
+                )
+            )
+            logger.info("Data for %s has been updated", chapter_info["chapterName"])
+        else:
+            await interaction.response.send_message("API Key not recongized.")
+            logger.warning("Failed to update server info: Bad chapter API key")
 
-#
-# Events
-#
 
 @client.event
 async def on_ready():
+    """
+    Event called when server is ready
+    """
     await tree.sync(guild=None)
-    logger.info(f'Logged in as {client.user}')
-    
-    # Start Tasks
-    addEvents.start()
-    updateEventsStatus.start()
+    logger.info("Logged in as %s", client.user)
 
-    # Start API
-    await webapi.get_app().run_task()
+    events_sync.start()
+    update_event_status.start()
+
 
 @client.event
-async def on_message(message:discord.Message):
-    if any([
-        not ollama.active,
-        client.user.id == message.author.id,
-        str(client.user.id) not in message.content
-        ]):
+async def on_message(message: discord.Message):
+    """
+    Process recieved messages
+
+    :param message: The recieved message
+    """
+
+    if client.user is None or any(
+        [
+            not ollama.active,
+            client.user.id == message.author.id,
+            str(client.user.id) not in message.content,
+        ]
+    ):
         return
-    
+
     message.content.replace(f"<@{client.user.id}>", "Billy")
 
     logger.info("Message recieved")
     logger.debug(message.content)
 
-    recieved_message = await ollama.generate_message(message.content)
-    if recieved_message:
+    recieved_message = await ollama.send_single_prompt(message.content)
+    if recieved_message is not None:
         await message.reply(recieved_message)
         logger.info("Message reply sent")
 
+
 @client.event
-async def on_guild_remove(guild:discord.Guild):
-    await db_manager.remove_discordServer(guild.id)
+async def on_guild_remove(guild: discord.Guild):
+    """
+    Remove server from database when bot removed from
+    server
 
-    info = await db_manager.get_serverInfo(guild.id)
-    servers = await db_manager.get_chapterServers(info.mgp_chapterId)
+    :param guild: The server
+    """
 
-    if len(servers) == 0:
-        db_manager.remove_chapterRaces(info.mgp_chapterId)
+    await db.remove_discord_server(guild.id)
 
-#
-# Tasks
-#
+    server = await db.get_server_info(guild.id)
+    if server is not None:
+        servers = await db.get_server_count_by_chapter(server.channel_id)
 
-# Replace this with a webhook if possible
+        if servers == 0:
+            await db.remove_event_by_chapter_id(server.channel_id)
+
+
+async def add_race_checks(
+    server: DiscordServer, race_id: int, race_name: str, api_key: str
+) -> tuple[bool, discord.ScheduledEvent | None]:
+
+    race_data = await multigp.pull_race_data(race_id, api_key)
+    if race_data is None:
+        return False, None
+
+    local_tz = tf.timezone_at(
+        lat=float(race_data["latitude"]), lng=float(race_data["longitude"])
+    )
+    if local_tz is None:
+        return False, None
+
+    race_starttime = datetime.datetime.strptime(
+        race_data["startDate"], "%Y-%m-%d %I:%M %p"
+    )
+    starttime_obj = pytz.timezone(local_tz).localize(race_starttime)
+
+    if race_data["endDate"]:
+        race_endtime = datetime.datetime.strptime(
+            race_data["endDate"], "%Y-%m-%d %I:%M %p"
+        )
+        endtime_obj = pytz.timezone(local_tz).localize(race_endtime)
+        if starttime_obj >= endtime_obj:
+            endtime_obj = starttime_obj + datetime.timedelta(hours=3)
+    else:
+        endtime_obj = starttime_obj + datetime.timedelta(hours=3)
+
+    current_date = datetime.datetime.now(tz=pytz.timezone(local_tz))
+    start_range = datetime.time(hour=8, tzinfo=current_date.tzinfo)
+    end_range = datetime.time(hour=20, tzinfo=current_date.tzinfo)
+
+    if datetime.datetime.now().astimezone().timestamp() > starttime_obj.timestamp():
+        return True, None
+
+    if current_date.timetz() < start_range or end_range < current_date.timetz():
+        return False, None
+
+    event_desciption = (
+        "[Sign Up on MultiGP]"
+        f"(https://www.multigp.com/races/view/?race={race_id})"
+        "\n\n{race_data['description']}"
+    )
+
+    guild = client.get_guild(server.server_id)
+    if guild is None:
+        return True, None
+
+    event = await guild.create_scheduled_event(
+        name=race_name,
+        description=event_desciption,
+        start_time=starttime_obj,
+        end_time=endtime_obj,
+        privacy_level=discord.PrivacyLevel.guild_only,
+        entity_type=discord.EntityType.external,
+        location=race_data["courseName"],
+    )
+    logger.info("Scheduled new event")
+
+    if ollama.active:
+        loop = asyncio.get_running_loop()
+        loop.create_task(
+            generate_and_send(server, race_data, race_name, race_starttime, event)
+        )
+
+    return True, event
+
+
+async def generate_and_send(
+    server: DiscordServer,
+    race_data: dict,
+    race_name: str,
+    race_starttime: datetime.datetime,
+    event: discord.ScheduledEvent,
+):
+    """
+    Sends an announcement message to the server
+
+    :param server: The server to announce to
+    :param race_data: The event data
+    :param race_name: The event name
+    :param race_starttime: The race datetime object
+    :param event: The discord event
+    """
+    channel = client.get_channel(server.channel_id)
+    if not isinstance(channel, discord.TextChannel):
+        return
+
+    prompt = (
+        "Cleverly announce an upcoming drone racing event "
+        f"called {race_name} to the members of drone racing group "
+        f"named {race_data['chapterName']}. It will occur on "
+        f"{race_starttime.year}-{race_starttime.month}-{race_starttime.day}."
+    )
+
+    recieved_message = await ollama.send_single_prompt(prompt)
+    if recieved_message:
+        await channel.send(content=f"@everyone {recieved_message}\n{event.url}")
+        logger.info("Announced new event")
+        logger.debug(recieved_message)
+
+
 @discord.ext.tasks.loop(hours=3)
-async def addEvents():
-    servers = await db_manager.get_discordServers()
-    for server in servers:
-        db_races = await db_manager.get_chapterRaces(server.mgp_chapterId)
-        mgp_races = await multigpAPI.pull_races(server.mgp_chapterId, server.mgp_apikey)
+async def events_sync():
+    """
+    Pulls data from MultiGP to sync with the local database
+
+    This task should be replaced with a webhook if possible
+    """
+    async for server in db.get_servers():
+
+        db_races = await db.get_chapter_race_ids(server.channel_id)
+        mgp_races = await multigp.pull_races(server.chapter_id, server.api_key)
 
         new_races = []
-        for id, name in mgp_races.items():
-            if id not in db_races:
-                race_data = await multigpAPI.pull_race_data(id, server.mgp_apikey)
-                local_tz = tf.timezone_at(lat=float(race_data['latitude']), lng=float(race_data['longitude']))
-                race_starttime = datetime.datetime.strptime(race_data['startDate'], '%Y-%m-%d %I:%M %p')
-                starttime_obj = pytz.timezone(local_tz).localize(race_starttime)
+        for race in mgp_races:
+            if race["id"] not in db_races:
 
-                if race_data['endDate']:
-                    race_endtime = datetime.datetime.strptime(race_data['endDate'], '%Y-%m-%d %I:%M %p')
-                    endtime_obj = pytz.timezone(local_tz).localize(race_endtime)
-                    if starttime_obj >= endtime_obj:
-                        endtime_obj = starttime_obj + datetime.timedelta(hours=3)
-                else:
-                    endtime_obj = starttime_obj + datetime.timedelta(hours=3)
-
-                current_date = datetime.datetime.now(tz=pytz.timezone(local_tz))
-                start_range = datetime.time(hour=8, tzinfo=current_date.tzinfo)
-                end_range = datetime.time(hour=20, tzinfo=current_date.tzinfo)
-
-                if current_date.timetz() < start_range or end_range < current_date.timetz():
+                add_status, event = await add_race_checks(
+                    server, race["id"], race["name"], server.api_key
+                )
+                if add_status is False:
                     continue
-
-                if datetime.datetime.now().astimezone().timestamp() < starttime_obj.timestamp():
-
-                    event_desciption = f"[Sign Up on MultiGP](https://www.multigp.com/races/view/?race={id})\n\n{race_data['description']}"
-
-                    guild = client.get_guild(server.discord_serverId)
-                    event = await guild.create_scheduled_event(
-                        name=name,
-                        description=event_desciption,
-                        start_time=starttime_obj,
-                        end_time=endtime_obj,
-                        privacy_level=discord.PrivacyLevel.guild_only,
-                        entity_type=discord.EntityType.external,
-                        location=race_data['courseName']
-                    )
-                    logger.info("Scheduled new event")
-
-                    if ollama.active:
-
-                        channel = client.get_channel(server.discord_channelId)
-
-                        prompt = f"""Cleverly announce an upcoming drone racing event called {name} to the members of drone racing group named {race_data['chapterName']}. 
-                        It will occur on {race_starttime.year}-{race_starttime.month}-{race_starttime.day}."""
-                        
-                        recieved_message = await ollama.generate_message(prompt)
-                        if recieved_message:
-                            await channel.send(content=f'@everyone {recieved_message}\n{event.url}')
-                            logger.info("Announced new event")
-                            logger.debug(recieved_message)
-
-                    new_races.append((id, server.mgp_chapterId, event.id))
+                if event is None:
+                    new_races.append((race["id"], server.chapter_id, None))
                 else:
-                    new_races.append((id, server.mgp_chapterId, None))
+                    new_races.append((race["id"], server.chapter_id, event.id))
 
-        await db_manager.add_chapterRaces(new_races)
+        await db.add_chapter_races(new_races)
 
-        avaliable_races = [id for id in mgp_races]
         old_races = []
         for race in db_races:
-            if race not in avaliable_races:
+            if race not in mgp_races:
                 old_races.append(race)
-        await db_manager.remove_Races(old_races)
+        await db.remove_events_by_event_id(old_races)
+
 
 @discord.ext.tasks.loop(minutes=15)
-async def updateEventsStatus():
-    servers = await db_manager.get_discordServers()
-    races:list[db_types.race] = await db_manager.get_Races()
-    for race in races:
-        if race.discord_eventId is None:
+async def update_event_status():
+    """
+    Periodically
+    """
+    async for race in db.get_races():
+        if race.event_id is None:
             continue
 
+        servers: list[DiscordServer] = await race.awaitable_attrs.servers
+
         for server in servers:
-            if server.mgp_chapterId == race.mgp_chapterId:
+            guild = client.get_guild(server.server_id)
+            event = guild.get_scheduled_event(race.event_id)
+            now = datetime.datetime.now().astimezone()
 
-                guild = client.get_guild(server.discord_serverId)
-                event = guild.get_scheduled_event(race.discord_eventId)
-                now = datetime.datetime.now().astimezone()
+            if event is not None:
+                if (
+                    event.status == discord.EventStatus.scheduled
+                    and now > event.start_time
+                ):
+                    await event.start()
+                if event.status == discord.EventStatus.active and now > event.end_time:
+                    await event.end()
 
-                if event is not None:
-                    if event.status == discord.EventStatus.scheduled and now > event.start_time:
-                        await event.start()
-                    if event.status == discord.EventStatus.active and now > event.end_time:
-                        await event.end()
 
-#
-# Run
-#
-
-if __name__ == "__main__":
-    BOT_TOKEN = os.getenv('TOKEN')
-    db_manager.estabilsh_db()
-
-    webapi.set_client(client)
-    client.run(BOT_TOKEN)
+async def start():
+    token = os.getenv("TOKEN")
+    await db.setup()
+    await client.start(token)

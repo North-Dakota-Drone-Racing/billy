@@ -1,6 +1,0 @@
-discord
-httpx
-timezonefinder
-pytz
-aiosqlite
-quart

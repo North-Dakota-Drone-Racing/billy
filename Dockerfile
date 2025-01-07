@@ -1,9 +1,13 @@
 FROM python:3.12
 
-ADD billy /billy
+ADD . /billy
 
 RUN mkdir -p /billy/files
 
-RUN pip install --no-cache-dir -U -r /billy/requirements.txt
+RUN pip install poetry
 
-CMD [ "python", "/billy/billy.py"]
+WORKDIR /billy
+
+RUN poetry install
+
+CMD [ "poetry", "run", "billy"]

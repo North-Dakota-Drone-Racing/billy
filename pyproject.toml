@@ -1,0 +1,47 @@
+[tool.poetry]
+name = "billy"
+version = "0.1.0"
+description = "MultiGP discord bot for event announcements"
+authors = ["Bryce Gruber <dev@brycegruber.com>"]
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/North-Dakota-Drone-Racing/billy"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+discord = "^2.3.2"
+httpx = "^0.28.1"
+timezonefinder = "^6.5.7"
+pytz = "^2024.2"
+aiosqlite = "^0.20.0"
+sqlalchemy = {extras = ["asyncio"], version = "^2.0.36"}
+uvloop = {version = "^0.21.0", platform = "linux"}
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+pytest = "*"
+pytest-asyncio = "*"
+pytest-cov = "*"
+black = "^24.10.0"
+mypy = "^1.13.0"
+pylint = "^3.3.2"
+types-pytz = "^2024.2.0.20241221"
+
+[tool.mypy]
+exclude = ["tests"]
+
+[tool.pytest.ini_options]
+addopts = "--no-cov-on-fail --showlocals --strict-markers"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.pylint]
+ignore = "tests"
