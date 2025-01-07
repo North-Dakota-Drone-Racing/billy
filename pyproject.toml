@@ -17,10 +17,12 @@ aiosqlite = "^0.20.0"
 sqlalchemy = {extras = ["asyncio"], version = "^2.0.36"}
 uvloop = {version = "^0.21.0", platform = "linux"}
 
-
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+start-billy = "billy.__main__:main"
 
 [tool.poetry.group.dev]
 optional = true
