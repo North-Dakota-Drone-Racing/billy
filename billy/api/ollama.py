@@ -67,10 +67,6 @@ class OllamaAPI(_APIManager):
 
         payload = {"model": _OLLAMA_MODEL, "messages": messages, "stream": False}
 
-        import json
-
-        logger.info(json.dumps(payload))
-
         data: dict[str, str | dict] | None = await self._request(
             RequestAction.POST, url, payload
         )

@@ -6,6 +6,7 @@ import os
 import logging
 import datetime
 import asyncio
+from collections.abc import AsyncGenerator
 
 import discord
 import discord.ext
@@ -118,6 +119,29 @@ async def generate_message_collection(message: discord.Message) -> list[dict[str
     return collection
 
 
+async def generate_response_fail_checks(
+    message: discord.Message,
+) -> AsyncGenerator[bool, None]:
+
+    if client.user is not None:
+
+        yield not ollama.active
+        yield client.user.id == message.author.id
+
+        invoked = str(client.user.id) not in message.content
+
+        if message.reference is not None and message.reference.message_id is not None:
+            message_ = await message.channel.fetch_message(message.reference.message_id)
+            replied = message_.author.id == client.user.id
+        else:
+            replied = False
+
+        yield not (invoked or replied)
+
+    else:
+        yield True
+
+
 @client.event
 async def on_message(message: discord.Message) -> None:
     """
@@ -126,14 +150,9 @@ async def on_message(message: discord.Message) -> None:
     :param message: The recieved message
     """
 
-    if client.user is None or any(
-        [
-            not ollama.active,
-            client.user.id == message.author.id,
-            str(client.user.id) not in message.content,
-        ]
-    ):
-        return
+    async for check in generate_response_fail_checks(message):
+        if check:
+            return
 
     logger.info("Message recieved")
     logger.debug(message.content)
@@ -325,7 +344,10 @@ async def update_event_status() -> None:
         if race.event_id is None:
             continue
 
-        servers: list[DiscordServer] = await race.awaitable_attrs.servers
+        servers: list[DiscordServer] | None = await race.awaitable_attrs.servers
+
+        if servers is None:
+            continue
 
         for server in servers:
 
