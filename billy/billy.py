@@ -72,6 +72,52 @@ async def on_ready() -> None:
     update_event_status.start()
 
 
+def format_message(message: discord.Message) -> dict[str, str]:
+    """
+    Formats a discord message for the Ollama chat api
+
+    :param message: Message to format
+    :return: Formated message
+    """
+
+    if client.user is None:
+        return {}
+
+    message_ = {
+        "role": "assistant" if message.author.id == client.user.id else "user",
+        "content": message.content.replace(f"<@{client.user.id}>", "Billy"),
+    }
+
+    return message_
+
+
+async def generate_message_collection(message: discord.Message) -> list[dict[str, str]]:
+    """
+    Get a collection of message history
+
+    :param message: The latest message
+    :return: The returned collection
+    """
+
+    collection: list[dict] = []
+
+    collection.insert(0, format_message(message))
+
+    if message.reference is not None:
+
+        next_id = message.reference.message_id
+        while next_id:
+            message = await message.channel.fetch_message(next_id)
+            collection.insert(0, format_message(message))
+
+            if message.reference is None:
+                next_id = None
+            else:
+                next_id = message.reference.message_id
+
+    return collection
+
+
 @client.event
 async def on_message(message: discord.Message) -> None:
     """
@@ -89,12 +135,12 @@ async def on_message(message: discord.Message) -> None:
     ):
         return
 
-    message.content.replace(f"<@{client.user.id}>", "Billy")
-
     logger.info("Message recieved")
     logger.debug(message.content)
 
-    recieved_message = await ollama.send_single_prompt(message.content)
+    messages = await generate_message_collection(message)
+    recieved_message = await ollama.generate_chat_response(messages)
+
     if recieved_message is not None:
         await message.reply(recieved_message)
         logger.info("Message reply sent")
@@ -224,7 +270,7 @@ async def generate_and_send(
         f"{race_starttime.year}-{race_starttime.month}-{race_starttime.day}."
     )
 
-    recieved_message = await ollama.send_single_prompt(prompt)
+    recieved_message = await ollama.generate_single_response(prompt)
     if recieved_message:
         await channel.send(content=f"@everyone {recieved_message}\n{event.url}")
         logger.info("Announced new event")
