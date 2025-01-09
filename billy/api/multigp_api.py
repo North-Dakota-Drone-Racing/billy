@@ -40,7 +40,9 @@ class MultiGPAPI(_APIManager):
 
         return None
 
-    async def pull_races(self, chapter_id: int, api_key: str) -> list | None:
+    async def pull_races(
+        self, chapter_id: str, api_key: str
+    ) -> list[dict[str, str]] | None:
         """
         Pull race data for a chapter
 
@@ -59,7 +61,7 @@ class MultiGPAPI(_APIManager):
 
         return None
 
-    async def pull_race_data(self, race_id: int, api_key: str) -> dict | None:
+    async def pull_race_data(self, race_id: str, api_key: str) -> dict | None:
         """
         Pull data for race
 

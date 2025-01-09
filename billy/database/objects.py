@@ -27,7 +27,7 @@ class DiscordServer(_ObjectBase):
     """The internal discord id of the server"""
     channel_id: Mapped[int] = mapped_column()
     """The channel of the server to announce messages in"""
-    chapter_id: Mapped[int] = mapped_column()
+    chapter_id: Mapped[str] = mapped_column()
     """The id of the chapter in the MultiGP database to bind to"""
     api_key: Mapped[str] = mapped_column()
     """The api key for the MultiGP chapter"""
@@ -46,9 +46,9 @@ class MGPEvent(_ObjectBase):
 
     __tablename__ = "event"
 
-    event_id: Mapped[int] = mapped_column()
+    event_id: Mapped[str] = mapped_column()
     """The id of the event in the MultiGP database"""
-    chapter_id: Mapped[int] = mapped_column(ForeignKey("server.id"))
+    chapter_id: Mapped[str] = mapped_column(ForeignKey("server.id"))
     """The id of the event in the MultiGP database"""
     discord_event_id: Mapped[int] = mapped_column(nullable=True)
     """The discord event id"""

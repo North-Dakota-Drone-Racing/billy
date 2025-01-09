@@ -39,7 +39,7 @@ async def set_bot_configuration(
     interaction: discord.Interaction,
     channel: discord.app_commands.AppCommandChannel,
     apikey: str,
-):
+) -> None:
     """
     Sets the configurations for the server
     """
@@ -61,7 +61,7 @@ async def set_bot_configuration(
 
 
 @client.event
-async def on_ready():
+async def on_ready() -> None:
     """
     Event called when server is ready
     """
@@ -73,7 +73,7 @@ async def on_ready():
 
 
 @client.event
-async def on_message(message: discord.Message):
+async def on_message(message: discord.Message) -> None:
     """
     Process recieved messages
 
@@ -101,7 +101,7 @@ async def on_message(message: discord.Message):
 
 
 @client.event
-async def on_guild_remove(guild: discord.Guild):
+async def on_guild_remove(guild: discord.Guild) -> None:
     """
     Remove server from database when bot removed from
     server
@@ -113,14 +113,14 @@ async def on_guild_remove(guild: discord.Guild):
 
     server = await db.get_server_info(guild.id)
     if server is not None:
-        servers = await db.get_server_count_by_chapter(server.channel_id)
+        servers = await db.get_server_count_by_chapter(server.chapter_id)
 
         if servers == 0:
-            await db.remove_event_by_chapter_id(server.channel_id)
+            await db.remove_event_by_chapter_id(server.chapter_id)
 
 
 async def add_race_checks(
-    server: DiscordServer, race_id: int, race_name: str, api_key: str
+    server: DiscordServer, race_id: str, race_name: str, api_key: str
 ) -> tuple[bool, discord.ScheduledEvent | None]:
     """
     Checks for adding race to database
@@ -203,7 +203,7 @@ async def generate_and_send(
     race_name: str,
     race_starttime: datetime.datetime,
     event: discord.ScheduledEvent,
-):
+) -> None:
     """
     Sends an announcement message to the server
 
@@ -232,7 +232,7 @@ async def generate_and_send(
 
 
 @discord.ext.tasks.loop(hours=3)
-async def events_sync():
+async def events_sync() -> None:
     """
     Pulls data from MultiGP to sync with the local database
 
@@ -240,10 +240,13 @@ async def events_sync():
     """
     async for server in db.get_servers():
 
-        db_races = await db.get_chapter_race_ids(server.channel_id)
+        db_races = await db.get_chapter_race_ids(server.chapter_id)
         mgp_races = await multigp.pull_races(server.chapter_id, server.api_key)
 
-        new_races = []
+        if mgp_races is None:
+            continue
+
+        new_races: list[tuple[str, str, int | None]] = []
         for race in mgp_races:
             if race["id"] not in db_races:
 
@@ -259,15 +262,16 @@ async def events_sync():
 
         await db.add_chapter_races(new_races)
 
-        old_races = []
-        for race in db_races:
-            if race not in mgp_races:
-                old_races.append(race)
+        old_races: list[str] = []
+        mgp_races_: set[str] = {race["id"] for race in mgp_races}
+        for race_ in db_races:
+            if race_ not in mgp_races_:
+                old_races.append(race_)
         await db.remove_events_by_event_id(old_races)
 
 
 @discord.ext.tasks.loop(minutes=15)
-async def update_event_status():
+async def update_event_status() -> None:
     """
     Periodically
     """
@@ -278,8 +282,11 @@ async def update_event_status():
         servers: list[DiscordServer] = await race.awaitable_attrs.servers
 
         for server in servers:
-            guild = client.get_guild(server.server_id)
-            event = guild.get_scheduled_event(race.event_id)
+
+            if (guild := client.get_guild(server.server_id)) is None:
+                continue
+
+            event = guild.get_scheduled_event(race.discord_event_id)
             now = datetime.datetime.now().astimezone()
 
             if event is not None:
@@ -288,14 +295,22 @@ async def update_event_status():
                     and now > event.start_time
                 ):
                     await event.start()
-                if event.status == discord.EventStatus.active and now > event.end_time:
+                if (
+                    event.status == discord.EventStatus.active
+                    and event.end_time is not None
+                    and now > event.end_time
+                ):
                     await event.end()
 
 
-async def start():
+async def start() -> None:
     """
     Start the discord bot
     """
     token = os.getenv("TOKEN")
     await db.setup()
-    await client.start(token)
+    if token is not None:
+        logger.info("Starting Billy")
+        await client.start(token)
+    else:
+        logger.warning("Discord bot token not found")

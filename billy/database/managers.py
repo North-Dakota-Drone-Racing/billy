@@ -64,7 +64,7 @@ class DatabaseManager:
 
         await self.engine.dispose()
 
-    async def get_server_count_by_chapter(self, chapter_id: int) -> int:
+    async def get_server_count_by_chapter(self, chapter_id: str) -> int:
         """
         Count the
 
@@ -104,9 +104,9 @@ class DatabaseManager:
             DiscordServer.server_id == server_id
         )
         async with self._session_maker() as session:
-            chapter_id = await session.scalar(find_statement)
+            server_entry_id = await session.scalar(find_statement)
 
-            if chapter_id is None:
+            if server_entry_id is None:
                 chapter = DiscordServer(
                     server_id, channel_id, mgp_chapter_id, mgp_api_key
                 )
@@ -114,7 +114,7 @@ class DatabaseManager:
             else:
                 modify_statement = (
                     update(DiscordServer)
-                    .where(DiscordServer.id == chapter_id)
+                    .where(DiscordServer.id == server_entry_id)
                     .values(
                         channel_id=channel_id,
                         chapter_id=mgp_chapter_id,
@@ -156,7 +156,7 @@ class DatabaseManager:
                 yield chapter
 
     async def get_chapter_servers(
-        self, chapter_id: int
+        self, chapter_id: str
     ) -> AsyncGenerator[DiscordServer, None]:
         """
         Get all instances of a chapter based on the chapter_id
@@ -223,9 +223,9 @@ class DatabaseManager:
 
             return results
 
-    async def remove_event(self, event_id: int) -> None:
+    async def remove_event(self, event_id: str) -> None:
         """
-        Removes a discord server from the database
+        Removes a MultiGP event from the database
 
         :param event_id: ID of the discord event
         """
@@ -247,7 +247,7 @@ class DatabaseManager:
             await session.execute(statement)
             await session.commit()
 
-    async def remove_event_by_chapter_id(self, chapter_id: int) -> None:
+    async def remove_event_by_chapter_id(self, chapter_id: str) -> None:
         """
         Removes a discord server from the database by chapter id
 
