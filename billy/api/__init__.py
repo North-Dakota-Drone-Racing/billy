@@ -3,4 +3,4 @@ API Access
 """
 
 from .ollama import OllamaAPI
-from .multigpAPI import MultiGPAPI
+from .multigp_api import MultiGPAPI

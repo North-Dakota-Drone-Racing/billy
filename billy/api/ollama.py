@@ -14,11 +14,6 @@ _OLLAMA_PORT = os.getenv("OLLAMA_PORT")
 _OLLAMA_MODEL = os.getenv("OLLAMA_MODEL")
 
 
-_OLLAMA_SERVER = "172.17.1.7"
-_OLLAMA_PORT = "11434"
-_OLLAMA_MODEL = "billy"
-
-
 class OllamaAPI(_APIManager):
     """
     Manager for Ollama requests

@@ -122,6 +122,15 @@ async def on_guild_remove(guild: discord.Guild):
 async def add_race_checks(
     server: DiscordServer, race_id: int, race_name: str, api_key: str
 ) -> tuple[bool, discord.ScheduledEvent | None]:
+    """
+    Checks for adding race to database
+
+    :param server: Discord server associated with the checks
+    :param race_id: The id of the race
+    :param race_name: The race name
+    :param api_key: The chapter api key
+    :return: The status and generated event (if created)
+    """
 
     race_data = await multigp.pull_race_data(race_id, api_key)
     if race_data is None:
@@ -161,7 +170,7 @@ async def add_race_checks(
     event_desciption = (
         "[Sign Up on MultiGP]"
         f"(https://www.multigp.com/races/view/?race={race_id})"
-        "\n\n{race_data['description']}"
+        f"\n\n{race_data['description']}"
     )
 
     guild = client.get_guild(server.server_id)
@@ -284,6 +293,9 @@ async def update_event_status():
 
 
 async def start():
+    """
+    Start the discord bot
+    """
     token = os.getenv("TOKEN")
     await db.setup()
     await client.start(token)
