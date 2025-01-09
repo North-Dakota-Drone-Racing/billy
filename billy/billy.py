@@ -128,7 +128,7 @@ async def generate_response_fail_checks(
         yield not ollama.active
         yield client.user.id == message.author.id
 
-        invoked = str(client.user.id) not in message.content
+        invoked = str(client.user.id) in message.content
 
         if message.reference is not None and message.reference.message_id is not None:
             message_ = await message.channel.fetch_message(message.reference.message_id)
