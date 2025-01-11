@@ -25,6 +25,7 @@ logging.basicConfig(
     level=LEVEL,
     format=FORMAT,
     datefmt="%Y-%m-%d %H:%M:%S",
+    handlers=[logging.StreamHandler()],
 )
 
 # pylint: disable=E0401
@@ -37,7 +38,8 @@ else:
 
 def main() -> None:
     """
-    Run the discord bot
+    Run the discord bot. This enables starting the bot from
+    poetry
     """
     run(start())
 

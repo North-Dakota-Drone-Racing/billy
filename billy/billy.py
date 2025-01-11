@@ -6,6 +6,7 @@ import os
 import logging
 import datetime
 import asyncio
+import random
 from collections.abc import AsyncGenerator
 
 import discord
@@ -30,6 +31,8 @@ db = DatabaseManager(filename=_filepath)
 
 multigp = MultiGPAPI()
 ollama = OllamaAPI()
+
+bot_name = os.getenv("BOT_NAME", "Billy")
 
 
 @tree.command(
@@ -86,7 +89,7 @@ def format_message(message: discord.Message) -> dict[str, str]:
 
     message_ = {
         "role": "assistant" if message.author.id == client.user.id else "user",
-        "content": message.content.replace(f"<@{client.user.id}>", "Billy"),
+        "content": message.content.replace(f"<@{client.user.id}>", bot_name),
     }
 
     return message_
@@ -119,14 +122,22 @@ async def generate_message_collection(message: discord.Message) -> list[dict[str
     return collection
 
 
-async def generate_response_fail_checks(
+async def generate_response_checks(
     message: discord.Message,
 ) -> AsyncGenerator[bool, None]:
+    """
+    Generate a series of checks that when passing, allow
+    for the discord bot to respond with a generated
+    message.
+
+    :param message: The discord message recieved
+    :yield: The status of the checks
+    """
 
     if client.user is not None:
 
-        yield not ollama.active
-        yield client.user.id == message.author.id
+        yield ollama.active
+        yield client.user.id != message.author.id
 
         invoked = str(client.user.id) in message.content
 
@@ -136,10 +147,12 @@ async def generate_response_fail_checks(
         else:
             replied = False
 
-        yield not (invoked or replied)
+        random_response = random.random() < 0.002
+
+        yield invoked or replied or random_response
 
     else:
-        yield True
+        yield False
 
 
 @client.event
@@ -150,8 +163,8 @@ async def on_message(message: discord.Message) -> None:
     :param message: The recieved message
     """
 
-    async for check in generate_response_fail_checks(message):
-        if check:
+    async for check in generate_response_checks(message):
+        if not check:
             return
 
     logger.info("Message recieved")
@@ -198,6 +211,9 @@ async def add_race_checks(
     """
 
     race_data = await multigp.pull_race_data(race_id, api_key)
+
+    await asyncio.sleep(0.2)
+
     if race_data is None:
         return False, None
 
@@ -235,7 +251,7 @@ async def add_race_checks(
     event_desciption = (
         "[Sign Up on MultiGP]"
         f"(https://www.multigp.com/races/view/?race={race_id})"
-        f"\n\n{race_data['description']}"
+        f"\n\n{race_data['content']}"
     )
 
     guild = client.get_guild(server.server_id)
@@ -307,6 +323,8 @@ async def events_sync() -> None:
 
         db_races = await db.get_chapter_race_ids(server.chapter_id)
         mgp_races = await multigp.pull_races(server.chapter_id, server.api_key)
+
+        await asyncio.sleep(0.5)
 
         if mgp_races is None:
             continue

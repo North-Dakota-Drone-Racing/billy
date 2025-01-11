@@ -6,6 +6,8 @@ from sqlalchemy import ForeignKey
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
+# pylint: disable=R0903
+
 
 class _ObjectBase(AsyncAttrs, DeclarativeBase):
     """
@@ -43,6 +45,8 @@ class MGPEvent(_ObjectBase):
     """
     Class representing a MultiGP Event
     """
+
+    # pylint: disable=E1136
 
     __tablename__ = "event"
 

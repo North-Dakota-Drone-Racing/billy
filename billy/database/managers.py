@@ -70,6 +70,7 @@ class DatabaseManager:
 
         :return: _description_
         """
+        # pylint: disable=E1102
 
         statement = (
             select(func.count())
