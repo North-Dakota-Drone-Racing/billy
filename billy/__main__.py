@@ -20,12 +20,16 @@ else:
 
 FORMAT = "%(asctime)s %(levelname)s %(message)s"
 logging.basicConfig(
-    filename=f"/billy/files/{timestamp}.log",
-    encoding="utf-8",
     level=LEVEL,
     format=FORMAT,
     datefmt="%Y-%m-%d %H:%M:%S",
-    handlers=[logging.StreamHandler()],
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler(
+            filename=f"/billy/files/{timestamp}.log",
+            encoding="utf-8",
+        ),
+    ],
 )
 
 # pylint: disable=E0401
